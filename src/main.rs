@@ -1,6 +1,7 @@
 use std::io::{Cursor, Read, Write, Seek};
 use std::net::TcpListener;
 use bytes::{Buf, BufMut};
+use crate::ErrorCode::UnsupportedVersion;
 
 struct Response<H> {
     message_size: i32,
@@ -16,6 +17,15 @@ struct RequestHeaderV2 {
     request_api_version: i16,
     correlation_id: i32,
     client_id: String,
+}
+
+enum RequestApiKey {
+    Produce = 0,
+    Fetch = 1,
+}
+
+enum ErrorCode {
+    UnsupportedVersion = 35
 }
 
 type ResponseV0 = Response<ResponseHeaderV0>;
@@ -49,6 +59,10 @@ fn main() -> anyhow::Result<()> {
                 let mut response = Vec::<u8>::with_capacity(8);
                 response.put_i32(0);
                 response.put_i32(correlation_id);
+                if request_api_version < 0 || request_api_version > 4 {
+                    println!("Invalid request_api_version={}", request_api_version);
+                    response.put_i16(UnsupportedVersion as i16)
+                }
                 stream.write_all(&*response)?;
                 println!("written");
             }
