@@ -1,5 +1,6 @@
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write, Seek};
 use std::net::TcpListener;
+use bytes::{Buf, BufMut};
 
 struct Response<H> {
     message_size: i32,
@@ -8,6 +9,13 @@ struct Response<H> {
 }
 struct ResponseHeaderV0 {
     correlation_id: i32,
+}
+
+struct RequestHeaderV2 {
+    request_api_key: i16,
+    request_api_version: i16,
+    correlation_id: i32,
+    client_id: String,
 }
 
 type ResponseV0 = Response<ResponseHeaderV0>;
@@ -24,14 +32,25 @@ fn main() -> anyhow::Result<()> {
         match stream {
             Ok(mut stream) => {
                 println!("accepted new connection");
-                // let response = ResponseV0 {
-                //     message_size: 0,
-                //     header: ResponseHeaderV0 {
-                //         correlation_id: 7   // hard coded for now
-                //     }
-                // };
-                let buf = [0, 0, 0, 0, 0, 0, 0, 7]; // hard-coded resposne
-                stream.write(&buf)?;
+                let mut request = [0u8; 4];
+                stream.read_exact(&mut request)?;
+                let message_size = i32::from_be_bytes(request);
+                let mut request = vec![0u8; message_size as usize];
+                stream.read_exact(&mut *request)?;
+                let mut cur = request.as_slice();
+                let request_api_key = cur.get_i16();
+                let request_api_version = cur.get_i16();
+                let correlation_id = cur.get_i32();
+                let client_id_len = cur.get_i32();
+                println!("request_api_key={}", request_api_key);
+                println!("request_api_version={}", request_api_version);
+                println!("correlation_id={}", correlation_id);
+                println!("client_id_len={}", client_id_len);
+                let mut response = Vec::<u8>::with_capacity(8);
+                response.put_i32(0);
+                response.put_i32(correlation_id);
+                stream.write_all(&*response)?;
+                println!("written");
             }
             Err(e) => {
                 println!("error: {}", e);
