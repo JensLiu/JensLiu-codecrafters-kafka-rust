@@ -91,23 +91,33 @@ fn main() -> anyhow::Result<()> {
                     // let client_software_name =
                 }
                 // response
-                let mut response = Vec::new();
-                response.put_i32(0);
-                response.put_i32(correlation_id);
-                if request_api_version < 0 || request_api_version > 4 {
-                    println!("Invalid request_api_version={}", request_api_version);
-                    response.put_i16(UnsupportedVersion as i16)
-                } else {
-                    if request_key == ApiVersions {
-                        response.put_i16(ErrorCode::NoError as i16);    // error code
-                        // API_VERSION API
-                        response.put_i16(ApiVersions as i16);   // api key
-                        response.put_i16(0);    // min version
-                        response.put_i16(8);    // max version
-                        response.put_i32(0);    // throttle time in ms?
-                        // possible other APIs
+                let mut data = Vec::new();
+                data.put_i32(correlation_id);       // correlation_id
+
+                if request_key == ApiVersions {
+                    // error code
+                    if request_api_version < 0 || request_api_version > 4 {
+                        println!("Invalid request_api_version={}", request_api_version);
+                        data.put_i16(UnsupportedVersion as i16)
+                    } else {
+                        data.put_i16(ErrorCode::NoError as i16);
                     }
+                    data.put_i8(2); // array end index
+                    // API_VERSION API
+                    data.put_i16(ApiVersions as i16);   // api key
+                    data.put_i16(0);    // min version
+                    data.put_i16(4);    // max version
+                    data.put_i8(0);     // TAG_BUFFER
+                    data.put_i32(0);    // throttle time in ms?
+                    data.put_i8(0);     // TAG_BUFFER
+                    // possible other APIs
                 }
+
+                println!("Response data = {:?}", data);
+
+                let mut response = Vec::new();
+                response.put_i32(data.len() as i32);    // data length
+                response.put(&data[..]);            // data
                 stream.write_all(&*response).unwrap();
                 println!("written {:?}", response);
             }
