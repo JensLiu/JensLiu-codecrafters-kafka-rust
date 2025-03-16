@@ -135,22 +135,38 @@ impl ResponseHeaderV0 {
 
 impl APIVersionsResponseBodyV4 {
     fn write(&self, buf: &mut Vec<u8>) {
-        buf.write_i16::<byteorder::BigEndian>(self.error_code as i16).expect("TODO: panic message");
-        for api_key in &self.api_keys {
-            buf.put_i16(api_key.api_key);
-            buf.put_i16(api_key.min_version);
-            buf.put_i16(api_key.max_version);
+        buf.put_i16(self.error_code as i16);
+        // println!("current buffer: {}", hex::encode(buf.clone()));
+        // NOTE: Implemented as a compact array
+        if self.api_keys.len() == 0 {
+            buf.put_i8(0);
+        } else {
+            buf.put_i8(self.api_keys.len() as i8 + 1);  // N + 1 for compact array
+            // println!("current buffer: {}", hex::encode(buf.clone()));
+            for api_key in &self.api_keys {
+                buf.put_i16(api_key.api_key);
+                // println!("current buffer: {}", hex::encode(buf.clone()));
+                buf.put_i16(api_key.min_version);
+                // println!("current buffer: {}", hex::encode(buf.clone()));
+                buf.put_i16(api_key.max_version);
+                // println!("current buffer: {}", hex::encode(buf.clone()));
+                put_tag_buffer(buf);
+                // println!("current buffer: {}", hex::encode(buf.clone()));
+            }
+            buf.put_i32(self.throttle_time_ms);
+            // println!("current buffer: {}", hex::encode(buf.clone()));
             put_tag_buffer(buf);
+            // println!("current buffer: {}", hex::encode(buf.clone()));
         }
-        buf.put_i32(self.throttle_time_ms);
-        put_tag_buffer(buf);
     }
 }
 
 impl ResponseBody {
     fn write(&self, cur: &mut Vec<u8>) {
+        // println!("current buffer: {}", hex::encode(cur.clone()));
         match self {
             ResponseBody::APIVersionsResponseBodyV4(body) => {
+                // println!("current buffer: {}", hex::encode(cur.clone()));
                 body.write(cur)
             }
             _ => {}
@@ -163,7 +179,9 @@ impl Response {
         let mut header_buf = Vec::new();
         self.header.write(&mut header_buf);
         let mut body_buf = Vec::new();
+        // println!("current buffer: {}", hex::encode(body_buf.clone()));
         self.body.write(&mut body_buf);
+        // println!("body: {:?}", hex::encode(body_buf.clone()));
         let message_size = header_buf.len() + body_buf.len();
         buf.put_i32(message_size as i32);
         buf.put(header_buf.as_slice());

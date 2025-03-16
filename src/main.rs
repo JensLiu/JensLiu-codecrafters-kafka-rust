@@ -5,24 +5,21 @@ use std::net::TcpListener;
 use bytes::{Buf, BufMut};
 use crate::network_req_resp::*;
 
-
-
-// type ResponseV0 = Response<ResponseHeaderV0>;
-
-fn main() -> anyhow::Result<()> {
+fn main() {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     println!("Logs from your program will appear here!");
 
     // Uncomment this block to pass the first stage
 
-    let listener = TcpListener::bind("127.0.0.1:9092")?;
+    let listener = TcpListener::bind("127.0.0.1:9092").unwrap();
 
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
                 println!("accepted new connection");
                 let mut request_buf= Vec::new();
-                stream.read_to_end(&mut request_buf)?;
+                let n = stream.read_to_end(&mut request_buf).unwrap();
+                println!("Request of size {n}: {:?}", request_buf);
                 let mut cur = Cursor::new(&*request_buf);
                 let request = Request::parse(&mut cur).unwrap();
                 println!("{:?}", request);
@@ -63,15 +60,14 @@ fn main() -> anyhow::Result<()> {
 
                 let mut response_buf = Vec::new();
                 response.write(&mut response_buf);
-                stream.write_all(&*response_buf).expect("TODO: panic message");
+                println!("{:?}", response_buf);
+                stream.write(&*response_buf).expect("TODO: panic message");
             }
 
 
-        Err(e) => {
-            println!("error: {}", e);
+            Err(e) => {
+                println!("error: {}", e);
+            }
         }
     }
-}
-
-Ok(())
 }
